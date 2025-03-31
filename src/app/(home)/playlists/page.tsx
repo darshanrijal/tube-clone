@@ -3,6 +3,8 @@ import { SuspenseFallbackError } from "@/components/suspense-fallback-error";
 import { PlaylistGridCardSkelton } from "./_components/playlist-grid-card";
 import { PlaylistView } from "./playlist-view";
 
+export const dynamic = "force-dynamic";
+
 export default function Playlists() {
   api.playlists.getMany.prefetchInfinite({});
   return (
