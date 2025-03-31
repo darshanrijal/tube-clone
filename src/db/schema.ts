@@ -162,3 +162,29 @@ export const commentReactionTable = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.commentId] })]
 );
+
+export const playlistToVideo = pgTable(
+  "playlist_to_video",
+  {
+    playlistId: text("playlist_id")
+      .references(() => playlistTable.id, { onDelete: "cascade" })
+      .notNull(),
+    videoId: text("video_id")
+      .references(() => videoTable.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
+    ...timestamps,
+  },
+  (t) => [primaryKey({ columns: [t.playlistId, t.videoId] })]
+);
+
+export const playlistTable = pgTable("playlists", {
+  id,
+  name: text("name").notNull(),
+  description: varchar({ length: 75 }),
+  userId: text("user_id")
+    .references(() => userTable.id, { onDelete: "cascade" })
+    .notNull(),
+  ...timestamps,
+});

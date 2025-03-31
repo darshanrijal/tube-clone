@@ -1,6 +1,8 @@
 import { DEFAULT_PAGINATION_LIMIT } from "@/constants";
 import { db } from "@/db";
 import {
+  playlistTable,
+  playlistToVideo,
   userTable,
   videoReactionTable,
   videoTable,
@@ -155,6 +157,51 @@ export const playlistsRouter = router({
 
       const data = {
         videos: result.slice(0, pagesize),
+        nextCursor,
+      };
+
+      return data;
+    }),
+  create: protectedProcedure
+    .input(z.object({ name: z.string().nonempty().trim() }))
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+      const { name } = input;
+
+      await db.insert(playlistTable).values({
+        name,
+        userId,
+      });
+    }),
+  getMany: protectedProcedure
+    .input(
+      z.object({
+        limit: z.number().default(DEFAULT_PAGINATION_LIMIT),
+        cursor: z.number().int().nullish(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit, cursor } = input;
+      const offset = cursor ?? 0;
+      const userId = ctx.user.id;
+      const playlists = await db
+        .select({
+          ...getTableColumns(playlistTable),
+          videoCount: db.$count(
+            playlistToVideo,
+            eq(playlistToVideo.playlistId, playlistTable.id)
+          ),
+        })
+        .from(playlistTable)
+        .where(eq(playlistTable.userId, userId))
+        .offset(offset)
+        .limit(limit)
+        .orderBy(desc(playlistTable.updatedAt));
+
+      const nextCursor = playlists.length === limit ? offset + limit : null;
+
+      const data = {
+        playlists,
         nextCursor,
       };
 
