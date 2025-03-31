@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { commentReactions, reactionEnum } from "@/db/schema";
+import { commentReactionTable, reactionEnum } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../trpc";
@@ -18,37 +18,37 @@ export const commentReactionsRouter = router({
 
       const [existingReaction] = await db
         .select()
-        .from(commentReactions)
+        .from(commentReactionTable)
         .where(
           and(
-            eq(commentReactions.commentId, commentId),
-            eq(commentReactions.userId, user.id)
+            eq(commentReactionTable.commentId, commentId),
+            eq(commentReactionTable.userId, user.id)
           )
         );
 
       if (existingReaction) {
         if (existingReaction.type === type) {
           await db
-            .delete(commentReactions)
+            .delete(commentReactionTable)
             .where(
               and(
-                eq(commentReactions.commentId, commentId),
-                eq(commentReactions.userId, user.id)
+                eq(commentReactionTable.commentId, commentId),
+                eq(commentReactionTable.userId, user.id)
               )
             );
         } else {
           await db
-            .update(commentReactions)
+            .update(commentReactionTable)
             .set({ type })
             .where(
               and(
-                eq(commentReactions.commentId, commentId),
-                eq(commentReactions.userId, user.id)
+                eq(commentReactionTable.commentId, commentId),
+                eq(commentReactionTable.userId, user.id)
               )
             );
         }
       } else {
-        await db.insert(commentReactions).values({
+        await db.insert(commentReactionTable).values({
           userId: user.id,
           commentId,
           type,

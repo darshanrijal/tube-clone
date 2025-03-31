@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { categories } from "@/db/schema";
+import { categoryTable } from "@/db/schema";
 import { tryCatch } from "@/lib/try-catch";
 
 const categoryData = [
@@ -61,7 +61,7 @@ const categoryData = [
   },
 ];
 
-const seedPromise = db.insert(categories).values(categoryData);
+const seedPromise = db.insert(categoryTable).values(categoryData);
 
 const { data, error } = await tryCatch(seedPromise);
 

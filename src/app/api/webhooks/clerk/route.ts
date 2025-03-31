@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { userTable } from "@/db/schema";
 import { env } from "@/env";
 import type { WebhookEvent } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     case "user.created": {
       const data = evt.data;
 
-      await db.insert(users).values({
+      await db.insert(userTable).values({
         clerkId: data.id,
         imageUrl: data.image_url,
         name: `${data.first_name} ${data.last_name}`,
@@ -54,12 +54,12 @@ export async function POST(req: Request) {
     case "user.updated": {
       const data = evt.data;
       await db
-        .update(users)
+        .update(userTable)
         .set({
           imageUrl: data.image_url,
           name: `${data.first_name} ${data.last_name}`,
         })
-        .where(eq(users.clerkId, data.id));
+        .where(eq(userTable.clerkId, data.id));
       break;
     }
 
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
       if (!data.id) {
         return new Response("Error: Missing user id", { status: 400 });
       }
-      await db.delete(users).where(eq(users.clerkId, data.id));
+      await db.delete(userTable).where(eq(userTable.clerkId, data.id));
       break;
     }
     default:

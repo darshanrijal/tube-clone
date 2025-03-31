@@ -14,7 +14,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
-  { title: "History", url: "/plalists/history", icon: HistoryIcon },
+  { title: "History", url: "/playlists/history", icon: HistoryIcon },
   {
     title: "Liked videos",
     url: "/playlists/liked",

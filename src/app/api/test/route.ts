@@ -1,8 +1,8 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { userTable } from "@/db/schema";
 
 export async function GET() {
-  await db.insert(users).values({
+  await db.insert(userTable).values({
     clerkId: "userId_",
     imageUrl: "imageurl",
     name: "Darshan rijal",

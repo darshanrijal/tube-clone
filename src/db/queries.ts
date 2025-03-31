@@ -4,13 +4,13 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { cache } from "react";
 import { db } from ".";
-import { users } from "./schema";
+import { userTable } from "./schema";
 
 export const getUserByClerkId = cache(async (clerkId: string) => {
   const getUserPromise = db
     .select()
-    .from(users)
-    .where(eq(users.clerkId, clerkId));
+    .from(userTable)
+    .where(eq(userTable.clerkId, clerkId));
 
   const { data, error } = await tryCatch(getUserPromise);
   if (error) {

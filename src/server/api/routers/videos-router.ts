@@ -1,11 +1,11 @@
 import { DEFAULT_PAGINATION_LIMIT } from "@/constants";
 import { db } from "@/db";
 import {
-  subscriptions,
-  users,
-  videoReactions,
-  videoViews,
-  videos,
+  subscriptionTable,
+  userTable,
+  videoReactionTable,
+  videoTable,
+  videoViewTable,
 } from "@/db/schema";
 import { mux } from "@/lib/mux";
 import { updateVideoSchema } from "@/lib/validation";
@@ -38,14 +38,14 @@ export const videoRouter = router({
       cors_origin: "*",
     });
     const [video] = await db
-      .insert(videos)
+      .insert(videoTable)
       .values({
         title: "UNTITLED",
         userId,
         muxStatus: "waiting",
         muxUploadId: upload.id,
       })
-      .returning({ id: videos.id });
+      .returning({ id: videoTable.id });
 
     if (!video) {
       throw new TRPCError({
@@ -62,10 +62,10 @@ export const videoRouter = router({
       const userId = ctx.user.id;
       const { videoId, ...values } = input;
       const [updatedVideo] = await db
-        .update(videos)
+        .update(videoTable)
         .set(values)
-        .where(and(eq(videos.userId, userId), eq(videos.id, videoId)))
-        .returning({ id: videos.id });
+        .where(and(eq(videoTable.userId, userId), eq(videoTable.id, videoId)))
+        .returning({ id: videoTable.id });
 
       if (!updatedVideo?.id) {
         throw new TRPCError({ code: "NOT_FOUND", message: "No video updated" });
@@ -78,8 +78,8 @@ export const videoRouter = router({
       const { videoId } = input;
 
       const [deletedVideo] = await db
-        .delete(videos)
-        .where(and(eq(videos.userId, userId), eq(videos.id, videoId)))
+        .delete(videoTable)
+        .where(and(eq(videoTable.userId, userId), eq(videoTable.id, videoId)))
         .returning();
 
       if (!deletedVideo?.id) {
@@ -104,8 +104,10 @@ export const videoRouter = router({
       const userId = ctx.user.id;
       const [video] = await db
         .select()
-        .from(videos)
-        .where(and(eq(videos.userId, userId), eq(videos.id, input.videoId)));
+        .from(videoTable)
+        .where(
+          and(eq(videoTable.userId, userId), eq(videoTable.id, input.videoId))
+        );
 
       if (!video) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
@@ -134,12 +136,12 @@ export const videoRouter = router({
       }
 
       await db
-        .update(videos)
+        .update(videoTable)
         .set({
           thumbnailUrl: data.ufsUrl,
           thumbnailKey: data.key,
         })
-        .where(eq(videos.id, video.id));
+        .where(eq(videoTable.id, video.id));
     }),
   getVideo: publicProcedure
     .input(z.object({ videoId: z.string().cuid2() }))
@@ -151,9 +153,9 @@ export const videoRouter = router({
       let userId: string | undefined;
 
       const [user] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(inArray(users.clerkId, clerkId ? [clerkId] : []));
+        .select({ id: userTable.id })
+        .from(userTable)
+        .where(inArray(userTable.clerkId, clerkId ? [clerkId] : []));
 
       if (user) {
         userId = user.id;
@@ -162,59 +164,62 @@ export const videoRouter = router({
       const viewerReaction = db.$with("viewer_reactions").as(
         db
           .select({
-            videoId: videoReactions.videoId,
-            type: videoReactions.type,
+            videoId: videoReactionTable.videoId,
+            type: videoReactionTable.type,
           })
-          .from(videoReactions)
-          .where(inArray(videoReactions.userId, userId ? [userId] : []))
+          .from(videoReactionTable)
+          .where(inArray(videoReactionTable.userId, userId ? [userId] : []))
       );
       const viewerSubscriptions = db.$with("viewer_subscriptions").as(
         db
           .select()
-          .from(subscriptions)
-          .where(inArray(subscriptions.viewerId, userId ? [userId] : []))
+          .from(subscriptionTable)
+          .where(inArray(subscriptionTable.viewerId, userId ? [userId] : []))
       );
       const [video] = await db
         .with(viewerReaction, viewerSubscriptions)
         .select({
-          ...getTableColumns(videos),
+          ...getTableColumns(videoTable),
           user: {
-            id: users.id,
-            clerkId: users.clerkId,
-            name: users.name,
-            imageUrl: users.imageUrl,
+            id: userTable.id,
+            clerkId: userTable.clerkId,
+            name: userTable.name,
+            imageUrl: userTable.imageUrl,
             isSubscribed: isNotNull(viewerSubscriptions.viewerId).mapWith(
               Boolean
             ),
             subscribers: db.$count(
-              subscriptions,
-              eq(subscriptions.creatorId, users.id)
+              subscriptionTable,
+              eq(subscriptionTable.creatorId, userTable.id)
             ),
           },
-          views: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
+          views: db.$count(
+            videoViewTable,
+            eq(videoViewTable.videoId, videoTable.id)
+          ),
           likes: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "like")
             )
           ),
           dislikes: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "dislike")
             )
           ),
           reaction: viewerReaction.type,
         })
-        .from(videos)
-        .where(eq(videos.id, videoId))
-        .innerJoin(users, eq(videos.userId, users.id))
-        .leftJoin(viewerReaction, eq(viewerReaction.videoId, videos.id))
+        .from(videoTable)
+        .where(eq(videoTable.id, videoId))
+        .innerJoin(userTable, eq(videoTable.userId, userTable.id))
+        .leftJoin(viewerReaction, eq(viewerReaction.videoId, videoTable.id))
         .leftJoin(
           viewerSubscriptions,
-          eq(viewerSubscriptions.creatorId, users.id)
+          eq(viewerSubscriptions.creatorId, userTable.id)
         );
 
       if (!video) {
@@ -228,8 +233,8 @@ export const videoRouter = router({
     .mutation(async ({ ctx, input }) => {
       const [video] = await db
         .select()
-        .from(videos)
-        .where(eq(videos.id, input.videoId));
+        .from(videoTable)
+        .where(eq(videoTable.id, input.videoId));
 
       if (!video) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
@@ -244,7 +249,7 @@ export const videoRouter = router({
       const asset = await mux.video.assets.retrieve(directUpload.asset_id);
       const duration = asset.duration ? Math.round(asset.duration * 1000) : 0;
       await db
-        .update(videos)
+        .update(videoTable)
         .set({
           muxStatus: asset.status,
           muxPlaybackId: asset.playback_ids?.[0]?.id,
@@ -252,7 +257,10 @@ export const videoRouter = router({
           duration,
         })
         .where(
-          and(eq(videos.id, input.videoId), eq(videos.userId, ctx.user.id))
+          and(
+            eq(videoTable.id, input.videoId),
+            eq(videoTable.userId, ctx.user.id)
+          )
         );
     }),
   getAllVideos: publicProcedure
@@ -268,39 +276,42 @@ export const videoRouter = router({
       const offset = cursor ?? 0;
       const result = await db
         .select({
-          ...getTableColumns(videos),
-          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
+          ...getTableColumns(videoTable),
+          viewCount: db.$count(
+            videoViewTable,
+            eq(videoViewTable.videoId, videoTable.id)
+          ),
           likeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "like")
             )
           ),
           dislikeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "dislike")
             )
           ),
           user: {
-            id: users.id,
-            name: users.name,
-            imageUrl: users.imageUrl,
+            id: userTable.id,
+            name: userTable.name,
+            imageUrl: userTable.imageUrl,
           },
         })
-        .from(videos)
+        .from(videoTable)
         .where(
           and(
-            categoryId ? eq(videos.categoryId, categoryId) : undefined,
-            eq(videos.visibility, "PUBLIC")
+            categoryId ? eq(videoTable.categoryId, categoryId) : undefined,
+            eq(videoTable.visibility, "PUBLIC")
           )
         )
-        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(userTable, eq(videoTable.userId, userTable.id))
         .limit(pagesize + 1)
         .offset(offset)
-        .orderBy(desc(videos.createdAt));
+        .orderBy(desc(videoTable.createdAt));
 
       const nextCursor = result.length > pagesize ? pagesize + offset : null;
 
@@ -322,37 +333,37 @@ export const videoRouter = router({
       const { pagesize, cursor } = input;
       const offset = cursor ?? 0;
       const viewCountSubQuery = db.$count(
-        videoViews,
-        eq(videoViews.videoId, videos.id)
+        videoViewTable,
+        eq(videoViewTable.videoId, videoTable.id)
       );
 
       const result = await db
         .select({
-          ...getTableColumns(videos),
+          ...getTableColumns(videoTable),
           viewCount: viewCountSubQuery,
           likeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "like")
             )
           ),
           dislikeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "dislike")
             )
           ),
           user: {
-            id: users.id,
-            name: users.name,
-            imageUrl: users.imageUrl,
+            id: userTable.id,
+            name: userTable.name,
+            imageUrl: userTable.imageUrl,
           },
         })
-        .from(videos)
-        .where(eq(videos.visibility, "PUBLIC"))
-        .innerJoin(users, eq(videos.userId, users.id))
+        .from(videoTable)
+        .where(eq(videoTable.visibility, "PUBLIC"))
+        .innerJoin(userTable, eq(videoTable.userId, userTable.id))
         .limit(pagesize + 1)
         .offset(offset)
         .orderBy(desc(viewCountSubQuery));
@@ -381,53 +392,56 @@ export const videoRouter = router({
       const viewerSubscriptions = db.$with("viewer_subscriptions").as(
         db
           .select({
-            creatorId: subscriptions.creatorId,
-            viewerId: subscriptions.viewerId,
+            creatorId: subscriptionTable.creatorId,
+            viewerId: subscriptionTable.viewerId,
           })
-          .from(subscriptions)
-          .where(eq(subscriptions.viewerId, userId))
+          .from(subscriptionTable)
+          .where(eq(subscriptionTable.viewerId, userId))
       );
 
       const result = await db
         .with(viewerSubscriptions)
         .select({
-          ...getTableColumns(videos),
-          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
+          ...getTableColumns(videoTable),
+          viewCount: db.$count(
+            videoViewTable,
+            eq(videoViewTable.videoId, videoTable.id)
+          ),
           likeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "like")
             )
           ),
           dislikeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "dislike")
             )
           ),
           user: {
-            id: users.id,
-            name: users.name,
-            imageUrl: users.imageUrl,
+            id: userTable.id,
+            name: userTable.name,
+            imageUrl: userTable.imageUrl,
           },
         })
-        .from(videos)
+        .from(videoTable)
         .where(
           and(
-            eq(videos.visibility, "PUBLIC"),
+            eq(videoTable.visibility, "PUBLIC"),
             eq(viewerSubscriptions.viewerId, userId)
           )
         )
-        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(userTable, eq(videoTable.userId, userTable.id))
         .innerJoin(
           viewerSubscriptions,
-          eq(viewerSubscriptions.creatorId, users.id)
+          eq(viewerSubscriptions.creatorId, userTable.id)
         )
         .limit(pagesize + 1)
         .offset(offset)
-        .orderBy(desc(videos.createdAt));
+        .orderBy(desc(videoTable.createdAt));
 
       const nextCursor = result.length > pagesize ? pagesize + offset : null;
 

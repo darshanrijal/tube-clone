@@ -1,6 +1,6 @@
 import { DEFAULT_PAGINATION_LIMIT } from "@/constants";
 import { db } from "@/db";
-import { commentReactions, comments, users } from "@/db/schema";
+import { commentReactionTable, commentTable, userTable } from "@/db/schema";
 import { createCommentSchema } from "@/lib/validation";
 import { TRPCError } from "@trpc/server";
 import {
@@ -33,8 +33,8 @@ export const commentRouter = router({
 
       const [existingComment] = await db
         .select()
-        .from(comments)
-        .where(inArray(comments.id, parentId ? [parentId] : []));
+        .from(commentTable)
+        .where(inArray(commentTable.id, parentId ? [parentId] : []));
 
       if (!existingComment && parentId) {
         throw new TRPCError({ code: "NOT_FOUND" });
@@ -45,14 +45,14 @@ export const commentRouter = router({
       }
 
       const [createdComment] = await db
-        .insert(comments)
+        .insert(commentTable)
         .values({
           comment,
           userId,
           videoId,
           parentId,
         })
-        .returning({ id: comments.id });
+        .returning({ id: commentTable.id });
 
       if (!createdComment?.id) {
         throw new TRPCError({
@@ -79,8 +79,8 @@ export const commentRouter = router({
 
       const [user] = await db
         .select()
-        .from(users)
-        .where(inArray(users.clerkId, clerkId ? [clerkId] : []));
+        .from(userTable)
+        .where(inArray(userTable.clerkId, clerkId ? [clerkId] : []));
 
       if (user) {
         userId = user.id;
@@ -89,71 +89,74 @@ export const commentRouter = router({
       const viewerReactions = db.$with("viewer_reactions").as(
         db
           .select({
-            commentId: commentReactions.commentId,
-            type: commentReactions.type,
+            commentId: commentReactionTable.commentId,
+            type: commentReactionTable.type,
           })
-          .from(commentReactions)
-          .where(inArray(commentReactions.userId, userId ? [userId] : []))
+          .from(commentReactionTable)
+          .where(inArray(commentReactionTable.userId, userId ? [userId] : []))
       );
 
       const replies = db.$with("replies").as(
         db
           .select({
-            parentId: comments.parentId,
-            count: count(comments.id).as("count"),
+            parentId: commentTable.parentId,
+            count: count(commentTable.id).as("count"),
           })
-          .from(comments)
-          .where(isNotNull(comments.parentId))
-          .groupBy(comments.parentId)
+          .from(commentTable)
+          .where(isNotNull(commentTable.parentId))
+          .groupBy(commentTable.parentId)
       );
 
       const [allComments, totalCount] = await Promise.all([
         db
           .with(viewerReactions, replies)
           .select({
-            ...getTableColumns(comments),
+            ...getTableColumns(commentTable),
             user: {
-              imageUrl: users.imageUrl,
-              name: users.name,
-              clerkId: users.clerkId,
+              imageUrl: userTable.imageUrl,
+              name: userTable.name,
+              clerkId: userTable.clerkId,
             },
             viewerReaction: viewerReactions.type,
             likeCount: db.$count(
-              commentReactions,
+              commentReactionTable,
               and(
-                eq(commentReactions.type, "like"),
-                eq(commentReactions.commentId, comments.id)
+                eq(commentReactionTable.type, "like"),
+                eq(commentReactionTable.commentId, commentTable.id)
               )
             ),
             dislikeCount: db.$count(
-              commentReactions,
+              commentReactionTable,
               and(
-                eq(commentReactions.type, "dislike"),
-                eq(commentReactions.commentId, comments.id)
+                eq(commentReactionTable.type, "dislike"),
+                eq(commentReactionTable.commentId, commentTable.id)
               )
             ),
             replyCount: replies.count,
           })
-          .from(comments)
+          .from(commentTable)
           .limit(pagesize + 1)
           .offset(offset)
           .where(
             and(
-              eq(comments.videoId, input.videoId),
+              eq(commentTable.videoId, input.videoId),
               parentId
-                ? eq(comments.parentId, parentId)
-                : isNull(comments.parentId)
+                ? eq(commentTable.parentId, parentId)
+                : isNull(commentTable.parentId)
             )
           )
-          .orderBy(desc(comments.createdAt))
-          .innerJoin(users, eq(comments.userId, users.id))
-          .leftJoin(viewerReactions, eq(viewerReactions.commentId, comments.id))
-          .leftJoin(replies, eq(replies.parentId, comments.id)),
+          .orderBy(desc(commentTable.createdAt))
+          .innerJoin(userTable, eq(commentTable.userId, userTable.id))
+          .leftJoin(
+            viewerReactions,
+            eq(viewerReactions.commentId, commentTable.id)
+          )
+          .leftJoin(replies, eq(replies.parentId, commentTable.id)),
 
         db
           .select({ count: count() })
-          .from(comments)
-          .where(eq(comments.videoId, input.videoId))
+          .from(commentTable)
+          .where(eq(commentTable.videoId, input.videoId))
           .then((result) => result[0]?.count),
       ]);
 
@@ -171,14 +174,14 @@ export const commentRouter = router({
     .input(z.object({ commentId: z.string().cuid2() }))
     .mutation(async ({ input, ctx }) => {
       const [deltedComment] = await db
-        .delete(comments)
+        .delete(commentTable)
         .where(
           and(
-            eq(comments.userId, ctx.user.id),
-            eq(comments.id, input.commentId)
+            eq(commentTable.userId, ctx.user.id),
+            eq(commentTable.id, input.commentId)
           )
         )
-        .returning({ id: comments.id });
+        .returning({ id: commentTable.id });
 
       if (!deltedComment?.id) {
         throw new TRPCError({

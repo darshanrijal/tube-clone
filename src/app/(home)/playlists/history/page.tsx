@@ -11,7 +11,7 @@ export default function HistoryPage() {
 
   return (
     <HydrateClient>
-      <div className="mx-auto mb-10 flex max-w-screen-md flex-col gap-y-6 px-4 pt-2.5">
+      <div className="mx-auto mb-10 flex max-w-screen-lg flex-col gap-y-6 px-4 pt-2.5">
         <div>
           <h1 className="font-bold text-2xl">History</h1>
           <p className="text-muted-foreground text-xs">

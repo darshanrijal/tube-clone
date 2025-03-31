@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { getUserByClerkId } from "@/db/queries";
-import { videos } from "@/db/schema";
+import { videoTable } from "@/db/schema";
 import { auth } from "@clerk/nextjs/server";
 import { and, eq } from "drizzle-orm";
 import { type FileRouter, createUploadthing } from "uploadthing/next";
@@ -28,8 +28,10 @@ export const ourFileRouter = {
 
       const [video] = await db
         .select()
-        .from(videos)
-        .where(and(eq(videos.id, input.videoId), eq(videos.userId, user.id)));
+        .from(videoTable)
+        .where(
+          and(eq(videoTable.id, input.videoId), eq(videoTable.userId, user.id))
+        );
 
       if (!video) {
         throw new UploadThingError("No video found");
@@ -45,9 +47,9 @@ export const ourFileRouter = {
     })
     .onUploadComplete(async ({ file, metadata }) => {
       await db
-        .update(videos)
+        .update(videoTable)
         .set({ thumbnailUrl: file.ufsUrl })
-        .where(eq(videos.id, metadata.video.id));
+        .where(eq(videoTable.id, metadata.video.id));
       return { fileUrl: file.ufsUrl };
     }),
 } satisfies FileRouter;

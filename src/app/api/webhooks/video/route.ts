@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { videos } from "@/db/schema";
+import { videoTable } from "@/db/schema";
 import { env } from "@/env";
 import { mux } from "@/lib/mux";
 import type {
@@ -48,12 +48,12 @@ export async function POST(req: Request) {
       }
 
       await db
-        .update(videos)
+        .update(videoTable)
         .set({
           muxAssetId: data.id,
           muxStatus: data.status,
         })
-        .where(eq(videos.muxUploadId, data.id));
+        .where(eq(videoTable.muxUploadId, data.id));
       break;
     }
 
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
 
       const duration = Math.round((data.duration ?? 0) * 1000);
       await db
-        .update(videos)
+        .update(videoTable)
         .set({
           muxStatus: data.status,
           muxPlaybackId: playbackId,
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
           previewKey: previewRes?.data.key,
           duration,
         })
-        .where(eq(videos.muxUploadId, data.upload_id));
+        .where(eq(videoTable.muxUploadId, data.upload_id));
 
       break;
     }
@@ -113,9 +113,9 @@ export async function POST(req: Request) {
       }
 
       await db
-        .update(videos)
+        .update(videoTable)
         .set({ muxStatus: data.status })
-        .where(eq(videos.muxUploadId, data.upload_id));
+        .where(eq(videoTable.muxUploadId, data.upload_id));
       break;
     }
 
@@ -123,8 +123,8 @@ export async function POST(req: Request) {
       const data = payload.data;
 
       const [deletedVideo] = await db
-        .delete(videos)
-        .where(eq(videos.muxAssetId, data.id))
+        .delete(videoTable)
+        .where(eq(videoTable.muxAssetId, data.id))
         .returning();
 
       if (!deletedVideo?.id) {
@@ -152,9 +152,9 @@ export async function POST(req: Request) {
       const status = data.status;
 
       await db
-        .update(videos)
+        .update(videoTable)
         .set({ muxTrackId: trackId, muxTrackStatus: status })
-        .where(eq(videos.muxAssetId, assetId));
+        .where(eq(videoTable.muxAssetId, assetId));
 
       break;
     }

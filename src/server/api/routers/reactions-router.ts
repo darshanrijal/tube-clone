@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { reactionEnum, videoReactions } from "@/db/schema";
+import { reactionEnum, videoReactionTable } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../trpc";
@@ -18,37 +18,37 @@ export const reactionRouter = router({
 
       const [existingReaction] = await db
         .select()
-        .from(videoReactions)
+        .from(videoReactionTable)
         .where(
           and(
-            eq(videoReactions.videoId, videoId),
-            eq(videoReactions.userId, user.id)
+            eq(videoReactionTable.videoId, videoId),
+            eq(videoReactionTable.userId, user.id)
           )
         );
 
       if (existingReaction) {
         if (existingReaction.type === type) {
           await db
-            .delete(videoReactions)
+            .delete(videoReactionTable)
             .where(
               and(
-                eq(videoReactions.userId, user.id),
-                eq(videoReactions.videoId, videoId)
+                eq(videoReactionTable.userId, user.id),
+                eq(videoReactionTable.videoId, videoId)
               )
             );
         } else {
           await db
-            .update(videoReactions)
+            .update(videoReactionTable)
             .set({ type })
             .where(
               and(
-                eq(videoReactions.userId, user.id),
-                eq(videoReactions.videoId, videoId)
+                eq(videoReactionTable.userId, user.id),
+                eq(videoReactionTable.videoId, videoId)
               )
             );
         }
       } else {
-        await db.insert(videoReactions).values({
+        await db.insert(videoReactionTable).values({
           userId: user.id,
           videoId,
           type,

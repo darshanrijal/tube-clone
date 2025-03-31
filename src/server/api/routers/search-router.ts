@@ -1,6 +1,11 @@
 import { DEFAULT_PAGINATION_LIMIT } from "@/constants";
 import { db } from "@/db";
-import { users, videoReactions, videoViews, videos } from "@/db/schema";
+import {
+  userTable,
+  videoReactionTable,
+  videoTable,
+  videoViewTable,
+} from "@/db/schema";
 import { and, desc, eq, getTableColumns, ilike } from "drizzle-orm";
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
@@ -20,40 +25,43 @@ export const searchRouter = router({
       const offset = cursor ?? 0;
       const result = await db
         .select({
-          ...getTableColumns(videos),
-          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
+          ...getTableColumns(videoTable),
+          viewCount: db.$count(
+            videoViewTable,
+            eq(videoViewTable.videoId, videoTable.id)
+          ),
           likeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "like")
             )
           ),
           dislikeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "dislike")
             )
           ),
           user: {
-            id: users.id,
-            name: users.name,
-            imageUrl: users.imageUrl,
+            id: userTable.id,
+            name: userTable.name,
+            imageUrl: userTable.imageUrl,
           },
         })
-        .from(videos)
+        .from(videoTable)
         .where(
           and(
-            query ? ilike(videos.title, `%${query}`) : undefined,
-            categoryId ? eq(videos.categoryId, categoryId) : undefined,
-            eq(videos.visibility, "PUBLIC")
+            query ? ilike(videoTable.title, `%${query}`) : undefined,
+            categoryId ? eq(videoTable.categoryId, categoryId) : undefined,
+            eq(videoTable.visibility, "PUBLIC")
           )
         )
-        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(userTable, eq(videoTable.userId, userTable.id))
         .limit(pagesize + 1)
         .offset(offset)
-        .orderBy(desc(videos.createdAt));
+        .orderBy(desc(videoTable.createdAt));
 
       const nextCursor = result.length > pagesize ? pagesize + offset : null;
 

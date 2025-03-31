@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { getUserByClerkId } from "@/db/queries";
-import { videoViews } from "@/db/schema";
+import { videoViewTable } from "@/db/schema";
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc";
 
@@ -18,7 +18,7 @@ export const viewsRouter = router({
       const { videoId } = input;
 
       await db
-        .insert(videoViews)
+        .insert(videoViewTable)
         .values({
           userId: user.id,
           videoId,

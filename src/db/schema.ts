@@ -25,7 +25,7 @@ const timestamps = {
     .$onUpdate(() => new Date()),
 };
 
-export const users = pgTable(
+export const userTable = pgTable(
   "users",
   {
     id,
@@ -37,7 +37,7 @@ export const users = pgTable(
   (t) => [uniqueIndex().on(t.clerkId)]
 );
 
-export const categories = pgTable(
+export const categoryTable = pgTable(
   "categories",
   {
     id,
@@ -53,7 +53,7 @@ export const videoVisibility = pgEnum("video_visibility", [
 ]);
 export const videoVisibilityEnum = videoVisibility.enumValues;
 
-export const videos = pgTable("videos", {
+export const videoTable = pgTable("videos", {
   id,
   title: text("title").notNull(),
   description: text("description"),
@@ -70,25 +70,25 @@ export const videos = pgTable("videos", {
   duration: integer("duration").notNull().default(0),
   visibility: videoVisibility("visibility").notNull().default("PRIVATE"),
   userId: text("user_id")
-    .references(() => users.id, {
+    .references(() => userTable.id, {
       onDelete: "cascade",
     })
     .notNull(),
-  categoryId: text("category_id").references(() => categories.id, {
+  categoryId: text("category_id").references(() => categoryTable.id, {
     onDelete: "set null",
   }),
   ...timestamps,
 });
 
-export const videoViews = pgTable(
+export const videoViewTable = pgTable(
   "video_views",
   {
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     videoId: text("video_id")
       .notNull()
-      .references(() => videos.id, { onDelete: "cascade" }),
+      .references(() => videoTable.id, { onDelete: "cascade" }),
     ...timestamps,
   },
   (t) => [primaryKey({ columns: [t.userId, t.videoId] })]
@@ -98,45 +98,45 @@ export const reactionType = pgEnum("type", ["like", "dislike"]);
 export type ReactionType = (typeof reactionType.enumValues)[number];
 export const reactionEnum = reactionType.enumValues;
 
-export const videoReactions = pgTable(
+export const videoReactionTable = pgTable(
   "video_reactions",
   {
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     videoId: text("video_id")
       .notNull()
-      .references(() => videos.id, { onDelete: "cascade" }),
+      .references(() => videoTable.id, { onDelete: "cascade" }),
     type: reactionType("type").notNull(),
     ...timestamps,
   },
   (t) => [primaryKey({ columns: [t.userId, t.videoId] })]
 );
 
-export const subscriptions = pgTable(
+export const subscriptionTable = pgTable(
   "subscriptions",
   {
     viewerId: text("viewer_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     creatorId: text("creator_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     ...timestamps,
   },
   (t) => [primaryKey({ columns: [t.viewerId, t.creatorId] })]
 );
 
-export const comments = pgTable(
+export const commentTable = pgTable(
   "comments",
   {
     id,
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     videoId: text("video_id")
       .notNull()
-      .references(() => videos.id, { onDelete: "cascade" }),
+      .references(() => videoTable.id, { onDelete: "cascade" }),
     parentId: text("parent_id"),
     comment: varchar("comment", { length: 250 }).notNull(),
     ...timestamps,
@@ -148,15 +148,15 @@ export const comments = pgTable(
   ]
 );
 
-export const commentReactions = pgTable(
+export const commentReactionTable = pgTable(
   "comment_reactions",
   {
     userId: text("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     commentId: text("comment_id")
       .notNull()
-      .references(() => comments.id, { onDelete: "cascade" }),
+      .references(() => commentTable.id, { onDelete: "cascade" }),
     type: reactionType("type").notNull(),
     ...timestamps,
   },

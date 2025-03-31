@@ -1,6 +1,11 @@
 import { DEFAULT_PAGINATION_LIMIT } from "@/constants";
 import { db } from "@/db";
-import { users, videoReactions, videoViews, videos } from "@/db/schema";
+import {
+  userTable,
+  videoReactionTable,
+  videoTable,
+  videoViewTable,
+} from "@/db/schema";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, getTableColumns, not } from "drizzle-orm";
 import { z } from "zod";
@@ -20,8 +25,8 @@ export const suggestionRouter = router({
 
       const [existingVideo] = await db
         .select()
-        .from(videos)
-        .where(eq(videos.id, videoId));
+        .from(videoTable)
+        .where(eq(videoTable.id, videoId));
 
       if (!existingVideo) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Video not found" });
@@ -30,42 +35,45 @@ export const suggestionRouter = router({
       const offset = cursor ?? 0;
       const result = await db
         .select({
-          ...getTableColumns(videos),
-          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
+          ...getTableColumns(videoTable),
+          viewCount: db.$count(
+            videoViewTable,
+            eq(videoViewTable.videoId, videoTable.id)
+          ),
           likeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "like")
             )
           ),
           dislikeCount: db.$count(
-            videoReactions,
+            videoReactionTable,
             and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike")
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "dislike")
             )
           ),
           user: {
-            id: users.id,
-            name: users.name,
-            imageUrl: users.imageUrl,
+            id: userTable.id,
+            name: userTable.name,
+            imageUrl: userTable.imageUrl,
           },
         })
-        .from(videos)
+        .from(videoTable)
         .where(
           and(
             existingVideo.categoryId
-              ? eq(videos.categoryId, existingVideo.categoryId)
+              ? eq(videoTable.categoryId, existingVideo.categoryId)
               : undefined,
-            not(eq(videos.id, existingVideo.id)),
-            eq(videos.visibility, "PUBLIC")
+            not(eq(videoTable.id, existingVideo.id)),
+            eq(videoTable.visibility, "PUBLIC")
           )
         )
-        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(userTable, eq(videoTable.userId, userTable.id))
         .limit(pagesize + 1)
         .offset(offset)
-        .orderBy(desc(videos.createdAt));
+        .orderBy(desc(videoTable.createdAt));
 
       const nextCursor = result.length > pagesize ? pagesize + offset : null;
 

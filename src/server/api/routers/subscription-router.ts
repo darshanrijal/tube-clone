@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
+import { subscriptionTable } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../trpc";
@@ -17,25 +17,25 @@ export const subscriptionRouter = router({
 
       const [existingSubscription] = await db
         .select()
-        .from(subscriptions)
+        .from(subscriptionTable)
         .where(
           and(
-            eq(subscriptions.creatorId, creatorId),
-            eq(subscriptions.viewerId, user.id)
+            eq(subscriptionTable.creatorId, creatorId),
+            eq(subscriptionTable.viewerId, user.id)
           )
         );
 
       if (existingSubscription) {
         await db
-          .delete(subscriptions)
+          .delete(subscriptionTable)
           .where(
             and(
-              eq(subscriptions.creatorId, creatorId),
-              eq(subscriptions.viewerId, user.id)
+              eq(subscriptionTable.creatorId, creatorId),
+              eq(subscriptionTable.viewerId, user.id)
             )
           );
       } else {
-        await db.insert(subscriptions).values({
+        await db.insert(subscriptionTable).values({
           creatorId,
           viewerId: user.id,
         });
