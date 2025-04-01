@@ -8,7 +8,8 @@ import {
   videoTable,
   videoViewTable,
 } from "@/db/schema";
-import { and, desc, eq, getTableColumns } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { and, desc, eq, exists, getTableColumns } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../trpc";
 
@@ -184,6 +185,7 @@ export const playlistsRouter = router({
       const { limit, cursor } = input;
       const offset = cursor ?? 0;
       const userId = ctx.user.id;
+
       const playlists = await db
         .select({
           ...getTableColumns(playlistTable),
@@ -206,5 +208,83 @@ export const playlistsRouter = router({
       };
 
       return data;
+    }),
+  getManyForVideo: protectedProcedure
+    .input(
+      z.object({
+        limit: z.number().default(DEFAULT_PAGINATION_LIMIT),
+        cursor: z.number().int().nullish(),
+        videoId: z.string().cuid2(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit, cursor, videoId } = input;
+      const offset = cursor ?? 0;
+      const userId = ctx.user.id;
+      const playlists = await db
+        .select({
+          ...getTableColumns(playlistTable),
+          videoCount: db.$count(
+            playlistToVideo,
+            eq(playlistToVideo.playlistId, playlistTable.id)
+          ),
+          containsVideo: exists(
+            db
+              .select()
+              .from(playlistToVideo)
+              .where(
+                and(
+                  eq(playlistToVideo.playlistId, playlistTable.id),
+                  eq(playlistToVideo.videoId, videoId)
+                )
+              )
+          ).mapWith(Boolean),
+        })
+        .from(playlistTable)
+        .where(eq(playlistTable.userId, userId))
+        .offset(offset)
+        .limit(limit)
+        .orderBy(desc(playlistTable.updatedAt));
+
+      const nextCursor = playlists.length === limit ? offset + limit : null;
+
+      const data = {
+        playlists,
+        nextCursor,
+      };
+
+      return data;
+    }),
+  addVideo: protectedProcedure
+    .input(
+      z.object({ playlistId: z.string().cuid2(), videoId: z.string().cuid2() })
+    )
+    .mutation(async ({ input }) => {
+      await db.insert(playlistToVideo).values(input);
+    }),
+  removeVideo: protectedProcedure
+    .input(
+      z.object({ playlistId: z.string().cuid2(), videoId: z.string().cuid2() })
+    )
+    .mutation(async ({ input }) => {
+      const { playlistId, videoId } = input;
+      const [deletedItem] = await db
+        .delete(playlistToVideo)
+        .where(
+          and(
+            eq(playlistToVideo.videoId, videoId),
+            eq(playlistToVideo.playlistId, playlistId)
+          )
+        )
+        .returning();
+
+      if (!deletedItem) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Video is not in playlist, nothing to delete",
+        });
+      }
+
+      return deletedItem;
     }),
 });
