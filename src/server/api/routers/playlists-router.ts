@@ -9,7 +9,7 @@ import {
   videoViewTable,
 } from "@/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, exists, getTableColumns } from "drizzle-orm";
+import { and, desc, eq, exists, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../trpc";
 
@@ -186,28 +186,46 @@ export const playlistsRouter = router({
       const offset = cursor ?? 0;
       const userId = ctx.user.id;
 
+      const latestVideoThumbnailSubquery = db
+        .select({
+          playlistId: playlistToVideo.playlistId,
+          thumbnailUrl: videoTable.thumbnailUrl,
+        })
+        .from(playlistToVideo)
+        .innerJoin(videoTable, eq(playlistToVideo.videoId, videoTable.id))
+        .orderBy(desc(playlistToVideo.createdAt))
+        .as("latest_videos");
+
       const playlists = await db
         .select({
           ...getTableColumns(playlistTable),
-          videoCount: db.$count(
-            playlistToVideo,
-            eq(playlistToVideo.playlistId, playlistTable.id)
+          videoCount: sql<number>`count(${playlistToVideo.videoId})`.as(
+            "video_count"
           ),
+          latestVideoThumbnail: sql<string | null>`(
+            SELECT ${latestVideoThumbnailSubquery.thumbnailUrl}
+            FROM ${latestVideoThumbnailSubquery}
+            WHERE ${latestVideoThumbnailSubquery.playlistId} = ${playlistTable.id}
+            LIMIT 1
+          )`.as("latest_video_thumbnail"),
         })
         .from(playlistTable)
+        .leftJoin(
+          playlistToVideo,
+          eq(playlistToVideo.playlistId, playlistTable.id)
+        )
         .where(eq(playlistTable.userId, userId))
-        .offset(offset)
+        .groupBy(playlistTable.id)
+        .orderBy(desc(playlistTable.updatedAt))
         .limit(limit)
-        .orderBy(desc(playlistTable.updatedAt));
+        .offset(offset);
 
       const nextCursor = playlists.length === limit ? offset + limit : null;
 
-      const data = {
+      return {
         playlists,
         nextCursor,
       };
-
-      return data;
     }),
   getManyForVideo: protectedProcedure
     .input(
