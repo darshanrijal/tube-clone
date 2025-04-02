@@ -31,6 +31,7 @@ export function useSubscription({
       utils.videos.getVideosFromSubscriptions.invalidate();
       utils.users.get.invalidate({ userId });
       utils.users.get.invalidate({ userId });
+      utils.subscription.getMany.invalidate();
     },
   });
 

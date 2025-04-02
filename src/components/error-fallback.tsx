@@ -3,7 +3,6 @@ import { AlertTriangle } from "lucide-react";
 import type { FallbackProps } from "react-error-boundary";
 import { Button } from "./ui/button";
 
-// TODO: Add title to suspense fallbacks
 export const ErrorFallback = ({
   error,
   resetErrorBoundary,
