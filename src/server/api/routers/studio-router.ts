@@ -1,8 +1,14 @@
 import { DEFAULT_PAGINATION_LIMIT } from "@/constants";
 import { db } from "@/db";
-import { videoTable } from "@/db/schema";
+import {
+  commentTable,
+  userTable,
+  videoReactionTable,
+  videoTable,
+  videoViewTable,
+} from "@/db/schema";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../trpc";
 
@@ -19,7 +25,24 @@ export const studioRouter = router({
       const { pagesize, cursor } = input;
       const offset = cursor ?? 0;
       const result = await db
-        .select()
+        .select({
+          ...getTableColumns(videoTable),
+          viewCount: db.$count(
+            videoViewTable,
+            eq(videoViewTable.videoId, videoTable.id)
+          ),
+          likeCount: db.$count(
+            videoReactionTable,
+            and(
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "like")
+            )
+          ),
+          commentCount: db.$count(
+            commentTable,
+            eq(commentTable.videoId, videoTable.id)
+          ),
+        })
         .from(videoTable)
         .where(eq(videoTable.userId, userId))
         .limit(pagesize + 1)

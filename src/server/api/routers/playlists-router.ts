@@ -86,6 +86,143 @@ export const playlistsRouter = router({
 
       return data;
     }),
+
+  getOne: protectedProcedure
+    .input(z.object({ playlistId: z.string().cuid2() }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+      const { playlistId } = input;
+
+      const [existingPlaylist] = await db
+        .select()
+        .from(playlistTable)
+        .where(
+          and(
+            eq(playlistTable.id, playlistId),
+            eq(playlistTable.userId, userId)
+          )
+        );
+
+      if (!existingPlaylist) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No playlist found",
+        });
+      }
+
+      return existingPlaylist;
+    }),
+
+  remove: protectedProcedure
+    .input(z.object({ playlistId: z.string().cuid2() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+      const { playlistId } = input;
+
+      const [deletedPlaylist] = await db
+        .delete(playlistTable)
+        .where(
+          and(
+            eq(playlistTable.id, playlistId),
+            eq(playlistTable.userId, userId)
+          )
+        )
+        .returning();
+
+      if (!deletedPlaylist?.id) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Playlist doesnot exist",
+        });
+      }
+    }),
+  getVideos: protectedProcedure
+    .input(
+      z.object({
+        playlistId: z.string().cuid2(),
+        pagesize: z.number().default(DEFAULT_PAGINATION_LIMIT),
+        cursor: z.number().int().nullish(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const { pagesize, cursor, playlistId } = input;
+      const offset = cursor ?? 0;
+      const userId = ctx.user.id;
+
+      const videosFromPlaylist = db.$with("playlist_videos").as(
+        db
+          .select({
+            videoId: playlistToVideo.videoId,
+          })
+          .from(playlistToVideo)
+          .where(eq(playlistToVideo.playlistId, playlistId))
+      );
+
+      const [existingPlaylist] = await db
+        .select()
+        .from(playlistTable)
+        .where(
+          and(
+            eq(playlistTable.id, playlistId),
+            eq(playlistTable.userId, userId)
+          )
+        );
+
+      if (!existingPlaylist) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This playlist is not available",
+        });
+      }
+
+      const result = await db
+        .with(videosFromPlaylist)
+        .select({
+          ...getTableColumns(videoTable),
+          viewCount: db.$count(
+            videoViewTable,
+            eq(videoViewTable.videoId, videoTable.id)
+          ),
+          likeCount: db.$count(
+            videoReactionTable,
+            and(
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "like")
+            )
+          ),
+          dislikeCount: db.$count(
+            videoReactionTable,
+            and(
+              eq(videoReactionTable.videoId, videoTable.id),
+              eq(videoReactionTable.type, "dislike")
+            )
+          ),
+          user: {
+            id: userTable.id,
+            name: userTable.name,
+            imageUrl: userTable.imageUrl,
+          },
+        })
+        .from(videoTable)
+        .where(eq(videoTable.visibility, "PUBLIC"))
+        .innerJoin(userTable, eq(videoTable.userId, userTable.id))
+        .innerJoin(
+          videosFromPlaylist,
+          eq(videosFromPlaylist.videoId, videoTable.id)
+        )
+        .limit(pagesize + 1)
+        .offset(offset)
+        .orderBy(desc(videoTable.updatedAt));
+
+      const nextCursor = result.length > pagesize ? pagesize + offset : null;
+
+      const data = {
+        videos: result.slice(0, pagesize),
+        nextCursor,
+      };
+
+      return data;
+    }),
   getLiked: protectedProcedure
     .input(
       z.object({
@@ -278,7 +415,17 @@ export const playlistsRouter = router({
       z.object({ playlistId: z.string().cuid2(), videoId: z.string().cuid2() })
     )
     .mutation(async ({ input }) => {
-      await db.insert(playlistToVideo).values(input);
+      const [data] = await db.insert(playlistToVideo).values(input).returning();
+
+      if (!data) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Could not add video to the playlist",
+        });
+      }
+      return {
+        playlistId: data.playlistId,
+      };
     }),
   removeVideo: protectedProcedure
     .input(

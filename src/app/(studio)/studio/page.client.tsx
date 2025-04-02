@@ -114,13 +114,13 @@ export const StudioClientPage = () => {
                   {formatDate(video.createdAt, "MMM d, yyyy")}
                 </TableCell>
                 <TableCell className="hidden text-right text-muted-foreground lg:table-cell">
-                  views
+                  {video.viewCount}
                 </TableCell>
                 <TableCell className="hidden text-right text-muted-foreground lg:table-cell">
-                  comments
+                  {video.commentCount}
                 </TableCell>
                 <TableCell className="pr-6 text-right text-muted-foreground">
-                  likes
+                  {video.likeCount}
                 </TableCell>
               </TableRow>
             ))}
