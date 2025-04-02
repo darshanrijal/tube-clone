@@ -2,7 +2,6 @@ import { DEFAULT_PAGINATION_LIMIT } from "@/constants";
 import { db } from "@/db";
 import {
   commentTable,
-  userTable,
   videoReactionTable,
   videoTable,
   videoViewTable,

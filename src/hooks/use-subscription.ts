@@ -29,6 +29,8 @@ export function useSubscription({
         utils.videos.getVideo.invalidate({ videoId: fromVideoId });
       }
       utils.videos.getVideosFromSubscriptions.invalidate();
+      utils.users.get.invalidate({ userId });
+      utils.users.get.invalidate({ userId });
     },
   });
 

@@ -269,10 +269,11 @@ export const videoRouter = router({
         pagesize: z.number().default(DEFAULT_PAGINATION_LIMIT),
         cursor: z.number().int().nullish(),
         categoryId: z.string().cuid2().nullish(),
+        userId: z.string().cuid2().nullish(),
       })
     )
     .query(async ({ input }) => {
-      const { pagesize, cursor, categoryId } = input;
+      const { pagesize, cursor, categoryId, userId } = input;
       const offset = cursor ?? 0;
       const result = await db
         .select({
@@ -304,8 +305,9 @@ export const videoRouter = router({
         .from(videoTable)
         .where(
           and(
+            eq(videoTable.visibility, "PUBLIC"),
             categoryId ? eq(videoTable.categoryId, categoryId) : undefined,
-            eq(videoTable.visibility, "PUBLIC")
+            userId ? eq(videoTable.userId, userId) : undefined
           )
         )
         .innerJoin(userTable, eq(videoTable.userId, userTable.id))

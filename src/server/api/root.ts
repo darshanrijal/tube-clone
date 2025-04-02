@@ -7,11 +7,13 @@ import { searchRouter } from "./routers/search-router";
 import { studioRouter } from "./routers/studio-router";
 import { subscriptionRouter } from "./routers/subscription-router";
 import { suggestionRouter } from "./routers/suggestions-router";
+import { userRouter } from "./routers/user-router";
 import { videoRouter } from "./routers/videos-router";
 import { viewsRouter } from "./routers/views-router";
 import { createCallerFactory, router } from "./trpc";
 
 export const appRouter = router({
+  users: userRouter,
   views: viewsRouter,
   videos: videoRouter,
   studio: studioRouter,

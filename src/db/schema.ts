@@ -31,6 +31,8 @@ export const userTable = pgTable(
     id,
     clerkId: text("clerk_id").unique().notNull(),
     name: text("name").notNull(),
+    bannerUrl: text("banner_url"),
+    bannerKey: text("banner_key").unique(),
     imageUrl: text("image_url").notNull(),
     ...timestamps,
   },

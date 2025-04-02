@@ -7,3 +7,5 @@ export type VideoGetManyOutput = RouterOutputs["suggestions"]["get"];
 export type Fn<T, K> = (input: T) => K;
 
 export type PlaylistData = RouterOutputs["playlists"]["getMany"]["playlists"];
+
+export type UserData = RouterOutputs["users"]["get"];
